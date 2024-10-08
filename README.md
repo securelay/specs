@@ -11,7 +11,7 @@ A secure and ephemeral http-relay for small data.
 Securelay works in the following ways:
 1. Aggregator mode (**many to one**): Many can POST (or publish) to a public path for only one to GET (or subscribe) at a private path. POSTed data persist until next GET or expiry, whichever is earlier. This may be useful for aggregating HTML form data from one's users. Aggregated data is retrieved (GET) as a JSON array.
 2. Key-Value Store mode (one to many and one to one):
-   - **one to many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. However, GET at the private path retains the POSTed data for a further period of say 24 hrs. So one can use any uptime monitor to keep the data alive. See the [Security](#security) section below for a significant usecase of this mode.
+   - **one to many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. See the [Security](#security) section below for a significant usecase of this mode.
    - **one-to-one:** If path is suffixed with a user-given unique id `<uid>`. POSTed data persists until next GET or expiry, whichever is earlier. That is to say, when one POSTs to `https://api.securelay.tld/<private_path>/<uid>`, there can be only one GET consumer at `https://api.securelay.tld/<public_path>/<uid>`, after which any more GET at that path would result in a 404 error. This is useful for sending a separate response to each POSTer.
 
 **CORS:** Allowing CORS is a must. Otherwise, browsers would block client side calls to the API. So securelay server replies with the HEADER- `Access-Control-Allow-Origin: *`
