@@ -126,6 +126,12 @@ curl https://securelay.vercel.app/public/w_1uSAakuZ
 ```
 Returns: `{"msg":"This is a public notice"}`
 
+DELETE at private path:
+```bash
+curl -X DELETE https://securelay.vercel.app/private/3zTryeMxkq
+```
+Returns: [`204 No Content`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/204)
+
 ### One to One
 POST at private path with some custom field:
 ```bash
