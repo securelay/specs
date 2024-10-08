@@ -34,17 +34,17 @@ A GET to `https://api.securelay.tld/keys` returns a new private-public key-pair 
 
 `public_key` gives the public path as `/public/<public_key>`.
 
-A key, private or public is generated as `sign(<random> + <type>) + <random>`. `<type>` denotes the type of the key, i.e. 'private' or 'public' and `+` denotes concatenation.
+A key, private or public, is generated as `sign(<random> + <type>) + <random>`. `<type>` denotes the type of the key, i.e. 'private' or 'public' and `+` denotes concatenation. `<random>` denotes a random string (discussed below). Note: `<random>` is a substring of the key.
 
 The `sign(arg)` function is implemented as `substring(hmac(arg, <secret>))` where `<secret>` is some random string known only to the Securelay server. For the sake of [futureproofing](#features), `<secret>` may be related to the database used. Secret, therefore, may be chosen as some hash of the database credentials.
 
 `<random>`, in case of private key, is `substring(hash(<UUID>))` where `<UUID>` is a [version 4 UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)).
 
-`<random>`, in case of public key, is simply, `substring(hash(<private_key>))`.
+`<random>`, in case of public key, is `substring(hash(<random of private_key>))`.
 
-SHA256 or MD5 may be used as the `hash` function and for `hmac` above.
+SHA256 or MD5 may be used for both `hash` and `hmac` above.
 
-Substrings are taken only to shorten the key length.
+Substrings are used above only to keep the key length short.
 
 Note that given any key, it is trivial to determine whether it is public or private just by validating its signature. A GET at `https://api.securelay.tld/keys/<key>` returns information about the `<key>` in JSON format. If the provided key is private, it's public key is also returned.
 
