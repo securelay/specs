@@ -11,8 +11,10 @@ A secure and ephemeral http-relay for small data.
 Securelay works in the following ways:
 1. Aggregator mode (**many to one**): Many can POST (or publish) to a public path for only one to GET (or subscribe) at a private path. POSTed data persist until next GET or expiry, whichever is earlier. This may be useful for aggregating HTML form data from one's users. Aggregated data is retrieved (GET) as a JSON array.
 2. Key-Value Store mode (one to many and one to one):
-   - **one to many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. See the [Security](#security) section below for a significant usecase of this mode.
+   - **one to many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. Expiry may be refreshed with a PATCH request at the private path, with no body. See the [Security](#security) section below for a significant usecase of this mode.
    - **one-to-one:** If path is suffixed with a user-given unique id `<uid>`. POSTed data persists until next GET or expiry, whichever is earlier. That is to say, when one POSTs to `https://api.securelay.tld/<private_path>/<uid>`, there can be only one GET consumer at `https://api.securelay.tld/<public_path>/<uid>`, after which any more GET at that path would result in a 404 error. This is useful for sending a separate response to each POSTer.
+
+**Custom redirects:** All allowed POST requests support optional query strings of the form: `?ok=<URL1>&err=<URL2>`. If the request is successful, a [`303`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303) redirect to `URL1` is sent, instead of the usual status code [`200`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/200). On any failure, on the other hand, a `303` redirect to `URL2` is issued. Among other benefits, this helps provide user-friendly response when the user POSTs using HTML form submissions. Note: `<URL>` above denotes the [percent-encoded](https://www.urlencoder.org/) `URL`.
 
 **CORS:** Allowing CORS is a must. Otherwise, browsers would block client side calls to the API. So securelay server replies with the HEADER- `Access-Control-Allow-Origin: *`
 
@@ -127,6 +129,12 @@ curl https://securelay.vercel.app/public/w_1uSAakuZ
 ```
 Returns: `{"msg":"This is a public notice"}`
 
+Refresh expiry with PATCH at private path:
+```bash
+curl -X PATCH https://securelay.vercel.app/private/3zTryeMxkq
+```
+Returns: `{"message":"Done","error":"Ok","statusCode":200}` even if there is no data!
+
 DELETE at private path:
 ```bash
 curl -X DELETE https://securelay.vercel.app/private/3zTryeMxkq
@@ -163,3 +171,9 @@ Returns: `Consumed.`
 curl https://securelay.vercel.app/id
 ```
 Returns: `alz2h`
+
+### Custom redirects
+Applicable for all allowed POST requests. Example:
+```bash
+curl -i -d 'data=This+is+data' 'https://securelay.vercel.app/public/w_1uSAakuZ?ok=https%3A%2F%2Fexample.com&err=https%3A%2F%2Fgithub.com%2F404.html'
+```
