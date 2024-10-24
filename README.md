@@ -9,10 +9,15 @@ A secure and ephemeral http-relay for small data.
 **Duality:**
 
 Securelay works in the following ways:
-1. Aggregator mode (**many to one**): Many can POST (or publish) to a public path for only one to GET (or subscribe) at a private path. POSTed data persist until next GET or expiry, whichever is earlier. This may be useful for aggregating HTML form data from one's users. Aggregated data is retrieved (GET) as a JSON array.
-2. Key-Value Store mode (one to many and one to one):
-   - **one to many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. Expiry may be refreshed with a PATCH request at the private path, with no body. See the [Security](#security) section below for a significant usecase of this mode.
+1. [Aggregator](## 'Public POST | Private GET') mode (**many-to-one**):
+   Many can POST (or publish) to a public path for only one to GET (or subscribe) at a private path. POSTed data persist until next GET or expiry, whichever is earlier. This may be useful for aggregating HTML form data from one's users. Aggregated data is retrieved (GET) as a JSON array.
+2. [Key-Value Store](## 'Private POST | Public GET') mode (one-to-many and one-to-one):
+   - **one-to-many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. Expiry may be refreshed with a PATCH request at the private path, with no body. See the [Security](#security) section below for a significant usecase of this mode.
    - **one-to-one:** If path is suffixed with a user-given unique id `<uid>`. POSTed data persists until next GET or expiry, whichever is earlier. That is to say, when one POSTs to `https://api.securelay.tld/<private_path>/<uid>`, there can be only one GET consumer at `https://api.securelay.tld/<public_path>/<uid>`, after which any more GET at that path would result in a 404 error. This is useful for sending a separate response to each POSTer.
+
+**Webhooks:** Private GET requests can optionally send a webhook URL using [query parameter `hook`](## '`?hook=<percent-encoded-URL>`'). The webhook URL is cached by the Securelay server for a preset [TTL](## 'Time To Live'). Subsequent public POSTs will be delivered to the cached webhook. The webhook URL will be [decached](## 'deleted from cache') if:
+1. Attempted delivery to the webhook during a public POST fails.
+2. A private GET does not resend the webhook URL with query `hook`.
 
 **Custom redirects:** All allowed POST requests support optional query strings of the form: `?ok=<URL1>&err=<URL2>`. If the request is successful, a [`303`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303) redirect to `URL1` is sent, instead of the usual status code [`200`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/200). On any failure, on the other hand, a `303` redirect to `URL2` is issued. Among other benefits, this helps provide user-friendly response when the user POSTs using HTML form submissions. Note: `<URL>` above denotes the [percent-encoded](https://www.urlencoder.org/) `URL`.
 
@@ -171,6 +176,23 @@ Returns: `Consumed.`
 curl https://securelay.vercel.app/id
 ```
 Returns: `alz2h`
+
+### Webhooks
+Open two terminals: A and B.
+
+A. At terminal A, set up a webhook with URL https://ppng.io/3zTryeMxkq as follows:
+```bash
+while curl -f https://ppng.io/3zTryeMxkq; do :; done
+```
+B. At terminal B:
+```bash
+# Let Securelay know about your webhook URL
+curl https://securelay.vercel.app/private/3zTryeMxkq?hook=https%3A%2F%2Fppng.io%2F3zTryeMxkq
+
+# Make a public POST
+curl -d 'data=This+is+data' https://securelay.vercel.app/public/w_1uSAakuZ
+```
+Terminal A should output: `{"data":"This is data"}`
 
 ### Custom redirects
 Applicable for all allowed POST requests. Example:
