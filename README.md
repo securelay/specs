@@ -15,9 +15,13 @@ Securelay works in the following ways:
    - **one-to-many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. Expiry may be refreshed with a PATCH request at the private path, with no body. See the [Security](#security) section below for a significant usecase of this mode.
    - **one-to-one:** If path is suffixed with a user-given unique id `<uid>`. POSTed data persists until next GET or expiry, whichever is earlier. That is to say, when one POSTs to `https://api.securelay.tld/<private_path>/<uid>`, there can be only one GET consumer at `https://api.securelay.tld/<public_path>/<uid>`, after which any more GET at that path would result in a 404 error. This is useful for sending a separate response to each POSTer.
 
-**Webhooks:** Private GET requests can optionally send a webhook URL using [query parameter `hook`](## '`?hook=<percent-encoded-URL>`'). The webhook URL is cached by the Securelay server for a preset [TTL](## 'Time To Live'). Subsequent public POSTs will be delivered to the cached webhook. The webhook URL will be [decached](## 'deleted from cache') if:
+**Webhooks:** Private GET requests can optionally send a webhook URL using [query parameter `hook`](## '`?hook=<percent-encoded-URL>`'). The webhook URL is cached by the Securelay server for a preset [TTL](## 'Time To Live'). Subsequent public POSTs will be delivered (POST) to the cached webhook. The webhook URL will be [decached](## 'deleted from cache') if:
 1. Attempted delivery to the webhook during a public POST fails.
 2. A private GET does not resend the webhook URL with query `hook`.
+
+Note that since the webhook URL can be sent only with the private path, it is never exposed to the public. So, you can safely pass a webhook URL containing, say, secret credentials.
+
+Public POSTs respond with whether a webhook was used or not as `webhook: <boolean>`. They do not, however, reveal the webhook URL. 
 
 **Custom redirects:** All allowed POST requests support optional query strings of the form: `?ok=<URL1>&err=<URL2>`. If the request is successful, a [`303`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303) redirect to `URL1` is sent, instead of the usual status code [`200`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/200). On any failure, on the other hand, a `303` redirect to `URL2` is issued. Among other benefits, this helps provide user-friendly response when the user POSTs using HTML form submissions. Note: `<URL>` above denotes the [percent-encoded](https://www.urlencoder.org/) `URL`.
 
@@ -58,16 +62,20 @@ Note that given any key, it is trivial to determine whether it is public or priv
 Public paths are prefixed with `/public` and private paths with `/private` mainly for the sake of readability of user code.
 
 # Limits
-To mitigate abuse, the API accepts and validates only three `Content-Type`s.
-1. application/x-www-form-urlencoded
-2. application/json
-3. text/plain
+To mitigate abuse, the API might impose the following restrictions.
 
-It also accepts POSTs only if they have `Content-Length` less than a strict size-limit.
+- Accepts and validates only these `Content-Type`s.
+   - application/x-www-form-urlencoded
+   - application/json
+   - text/plain
 
-Another limit is imposed on how long POSTed data persists.
+- Accepts POSTs only if they have `Content-Length` less than a size-limit (`default`: 10 kiB).
 
-Requests to all private paths are heavily rate-limited, say, at max 60 requests per minute. After a certain number of 429 responses 403 bans are imposed. [404s are also rate limited](https://github.com/fastify/fastify-rate-limit?tab=readme-ov-file#preventing-guessing-of-urls-through-404s).
+- Retains POSTed data until (retrieved or) expiry (`default TTL`: 24 hrs).
+
+- Rate-limits requests. After a certain number of 429 responses 403 bans may be imposed. [404s may also be rate limited](https://github.com/fastify/fastify-rate-limit?tab=readme-ov-file#preventing-guessing-of-urls-through-404s).
+
+- Blocks offending IPs.
 
 # Use cases
 - Forms
@@ -79,13 +87,16 @@ Requests to all private paths are heavily rate-limited, say, at max 60 requests 
 - Dynamic DNS
 - Single click URL shortener
 - Configuration sharing between microservices
+- Request bin / http-bin
 
 # Model Implementations
 See repositories starting with `api-` in the [securelay](https://github.com/securelay) GitHub organization.
 These implementations are not necessarily complete.
 
 # Future directions
-- `?verify=<email>` query parameter when requesting the key-pair at `https://api.securelay.tld/keys`. This prompts Securelay to send an ephemeral nonce to the provided email. On presenting this nonce on a subsequent key-pair request with the query `?email=<email>&nonce=<nonce>&salt=<custom>` generates the desired key-pair. The `<random>` used to create the private key in this key-pair is : `hash(<email>+<custom>)`. So, basically it deterministically maps a *verified* email and a user-chosen salt to a private key. Even if the user loses his private key, he can easily retrieve it by verifying his email.
+- Accept `?verify=<email>` query parameter when requesting the key-pair at `https://api.securelay.tld/keys`. This prompts Securelay to send an ephemeral nonce to the provided email. On presenting this nonce on a subsequent key-pair request with the query `?email=<email>&nonce=<nonce>&salt=<custom>` generates the desired key-pair. The `<random>` used to create the private key in this key-pair is : `hash(<email>+<custom>)`. So, basically it deterministically maps a *verified* email and a user-chosen salt to a private key. Even if the user loses his private key, he can easily retrieve it by verifying his email.
+
+- Accept `Content-Type: multipart/form-data`.
 
 # API
 The following documents the API by using `curl` and the original Securelay server: https://securelay.vercel.app as example. POSTs in the following examples have `Content-Type: application/x-www-form-urlencoded`.
