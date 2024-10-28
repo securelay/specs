@@ -101,6 +101,8 @@ These implementations are not necessarily complete.
 # API
 The following documents the API by using `curl` and the original Securelay server: https://securelay.vercel.app as example. POSTs in the following examples have `Content-Type: application/x-www-form-urlencoded`.
 
+**Note:** [Here](https://github.com/securelay/api/blob/main/script.js) is a **JavaScript module** to access the private parts of the API.
+
 ### Generate new key-pair
 ```bash
 curl https://securelay.vercel.app/keys
