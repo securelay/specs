@@ -159,6 +159,13 @@ curl -X DELETE https://securelay.vercel.app/private/3zTryeMxkq
 ```
 Returns: [`204 No Content`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/204)
 
+### Stats
+GET at private path with query string `?stats` gives number of public POSTs waiting to be retrieved (consumed), which have not expired yet. It also gives the remaining TTL (in seconds) for those data as well as the data last published with POST at the private path. TTL value of 0 would mean data has either been consumed or has expired.
+```bash
+curl https://securelay.vercel.app/private/3zTryeMxkq?stats
+```
+Returns: `{"consume":{"count":2,"ttl":86395},"publish":{"ttl":0}}`
+
 ### One to One Relay
 POST at private path with some custom field:
 ```bash
@@ -178,11 +185,11 @@ curl https://securelay.vercel.app/public/w_1uSAakuZ/field
 ```
 Returns: `{"msg":"This is a private notice"}`
 
-Check if one-to-one data has been consumed:
+Check TTL (in seconds) of one-to-one data (value 0 would mean data has either been consumed or has expired):
 ```bash
 curl https://securelay.vercel.app/private/3zTryeMxkq/field
 ```
-Returns: `Consumed.`
+Returns: `{"ttl":86397}`
 
 ### Get endpoint's ID
 ```bash
