@@ -98,6 +98,10 @@ These implementations are not necessarily complete.
 
 - Accept `Content-Type: multipart/form-data`.
 
+- Enable push notifications to subscribing private key owners. *n* times a day the subscribers may be fed the same information that is available with `?stats` query during GET at the private path.
+
+- Support streams. POST at (public | private) path => GET at (private | public) path under `/streams`. Essentially, the Securelay server redirects to a http-relay service with the proper unique path.
+
 # API
 The following documents the API by using `curl` and the original Securelay server: https://securelay.vercel.app as example. POSTs in the following examples have `Content-Type: application/x-www-form-urlencoded`.
 
@@ -173,23 +177,17 @@ curl -d 'msg=This+is+a+private+notice' https://securelay.vercel.app/private/3zTr
 ```
 Returns: `{"message":"Done","error":"Ok","statusCode":200}`
 
-Check if one-to-one data has been consumed:
+Check TTL (in seconds) of one-to-one data (value 0 would mean data has either been consumed or has expired):
 ```bash
 curl https://securelay.vercel.app/private/3zTryeMxkq/field
 ```
-Returns: `Not consumed yet.`
+Returns: `{"ttl":86397}`
 
 GET at public path with some custom field:
 ```bash
 curl https://securelay.vercel.app/public/w_1uSAakuZ/field
 ```
 Returns: `{"msg":"This is a private notice"}`
-
-Check TTL (in seconds) of one-to-one data (value 0 would mean data has either been consumed or has expired):
-```bash
-curl https://securelay.vercel.app/private/3zTryeMxkq/field
-```
-Returns: `{"ttl":86397}`
 
 ### Get endpoint's ID
 ```bash
