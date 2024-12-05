@@ -84,17 +84,19 @@ To mitigate abuse, the API might impose the following restrictions.
 - For any given key and method (`GET` | `POST` | `PUT`), requests at `/pipe/<key>` can generate a certain maximum number (`default`: 5) of unique redirect URLs.
 
 # Use cases
-- Forms
-- Comments
-- Likes/page-views/votes/clicks aggregator/counter
-- Chats
-- PubSub
-- Dynamic Key Value Store
-- Dynamic DNS
-- Single click URL shortener
-- Configuration sharing between microservices
-- WebRTC signaling server
-- Request bin / http-bin
+- Form backend (in [aggregator](#features) mode).
+- Comments store (in [aggregator](#features) mode).
+- Likes/page-views/votes/clicks aggregator/counter (in [aggregator](#features) mode).
+- Chats (in [one-to-one & aggregator](#features) mode).
+- PubSub (in [one-to-many](#features) or key-value-store & [aggregator](#features) mode).
+- Dynamic Key Value Store; values against a public key can be updated and even deleted (using the private path). For custom keys, [one-to-one](#features) mode may be used.
+- Dynamic DNS (in [key-value-store](#features) mode). This is also useful for publishing dynamic relay IPs (such as provided by [ngrok](https://ngrok.com/) and other [port-forwarders](https://gist.github.com/SomajitDey/efd8f449a349bcd918c120f37e67ac00)) that expose nodes behind NAT.
+- Single click URL shortener (in [one-to-one](#features) mode).
+- Configuration sharing between microservices.
+- WebRTC signaling server or peer-to-peer (p2p) connector.
+- Request bin / http-bin (in [aggregator](#features) mode).
+- Secure p2p tunneling (using the [streams/piping feature](#features) @ `/pipe/` paths).
+- Hosting a rate-limited public webhook-server behind NAT (see [example](#api)).
 
 # Model Implementations
 See repositories starting with `api-` in the [securelay](https://github.com/securelay) GitHub organization.
