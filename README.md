@@ -13,7 +13,9 @@ Securelay works in the following ways:
    Many can POST (or publish) to a public path for only one to GET (or subscribe) at a private path. POSTed data persist until next GET or expiry, whichever is earlier. This may be useful for aggregating HTML form data from one's users. Aggregated data is retrieved (GET) as a JSON array.
 2. [Key-Value Store](## 'Private POST | Public GET') mode (one-to-many and one-to-one):
    - **one-to-many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. Expiry may be refreshed with a PATCH request at the private path, with no body. See the [Security](#security) section below for a significant usecase of this mode.
-   - **one-to-one:** If path is suffixed with a user-given unique id `<uid>`. POSTed data persists until next GET or expiry, whichever is earlier. That is to say, when one POSTs to `https://api.securelay.tld/<private_path>/<uid>`, there can be only one GET consumer at `https://api.securelay.tld/<public_path>/<uid>`, after which any more GET at that path would result in a 404 error. This is useful for sending a separate response to each POSTer.
+   - **one-to-one:** If path is suffixed with a user-given unique id `<uid>`. POSTed data persists until next GET or expiry, whichever is earlier. That is to say, when one POSTs to `https://securelay.tld/<private_path>/<uid>`, there can be only one GET consumer at `https://securelay.tld/<public_path>/<uid>`, after which any more GET at that path would result in a 404 error. This is useful for sending a separate response to each POSTer.
+
+**Metadata**: Securelay adds metadata to the posted data. Metadata consists of a unique id (`id`), (Unix) timestamp of when the data was posted (`time`).
 
 **Webhooks:** Private GET requests can optionally send a webhook URL using [query parameter `hook`](## '`?hook=<percent-encoded-URL>`'). The webhook URL is cached by the Securelay server for a preset [TTL](## 'Time To Live'). Subsequent public POSTs will be delivered (POST) to the cached webhook. The webhook URL will be [decached](## 'deleted from cache') if:
 1. Attempted delivery to the webhook during a public POST fails.
@@ -31,6 +33,8 @@ Public POSTs respond with whether a webhook was used or not as `webhook: <boolea
 
 **Streams or Piping**: POST or PUT at public (private) paths are piped to GET at corresponding private (public) path provided the paths are prefixed with `/pipe/`. Data here is streamed live from the sender to the receiver and not stored, even ephemerally. Essentially, the Securelay server redirects ([`307`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/307)) to a http-relay service such as [piping-server](https://github.com/nwtgck/piping-server) or [httprelay.io](https://httprelay.io/), with a unique path. The redirect URLs are valid for a preset TTL of, say, 60 seconds. A receiver (sender) waits for the corresponding sender (receiver) to connect, if not already found. The waiting period should not exceed the abovementioned TTL of the redirect URLs. Currently, the implementations, if any, depend on the availability of such 3rd party http-relays for this feature to work. If the 3rd party http-relay allows for it, there may not be any limit on the size of the piped data.
 
+**Web-push notifications for registered apps**: A developer using Securelay as backend may register her app (`<app>`)  at https://github.com/securelay/apps. Upon receiving any POST at the public path *with query string `?app=<app>`* , Securelay sends a web-push using [OneSignal](https://onesignal.com) and the registered settings. To target the user, Securelay uses the public key as [OneSignal external_id](https://documentation.onesignal.com/docs/users#external-id). The frontend can simply use the [OneSignal SDK](https://documentation.onesignal.com/docs/web-sdk-reference) to register the user for the web-push. It, however, needs a OneSignal `appId` to  initiate the SDK. This is available from Securelay with a GET at url: `/id?app=<app>`. For illustration, see the [Formonit](https://formonit.github.io) project that uses Securelay as backend.
+
 # Security
 Security is brought about by the use of dual paths, one private and the other public, for posting (POST) and retrieving (GET) data. Public path is derivable from private path but not the other way round. Compare this with other http-relay services like [piping-server](https://github.com/nwtgck/piping-server), [http-relay](https://httprelay.io) or [pipeto.me](https://pipeto.me) which use the same path for both GET and POST.
 
@@ -41,7 +45,7 @@ Another part of security is in ensuring that no two users can have the same priv
 Although Securelay can read the user data in principle, users can easily make the relay end-to-end-encrypted with the following strategy. One can simply POST his cryptographic public key at his private path for his users to consume at the corresponding public path. His users would then POST at the public path their data encrypted with that public key, for him to decrypt upon a subsequent GET at the private path!
 
 # Implementation details
-A GET to `https://api.securelay.tld/keys` returns a new private-public key-pair as JSON: `{"private":"<private_key>","public":"<public_key>"}`.
+A GET to `https://securelay.tld/keys` returns a new private-public key-pair as JSON: `{"private":"<private_key>","public":"<public_key>"}`.
 
 `private_key` gives the private path as `/private/<private_key>`.
 
@@ -59,7 +63,7 @@ SHA256 or MD5 may be used for both `hash` and `hmac` above.
 
 Substrings are used above only to keep the key length short.
 
-Note that given any key, it is trivial to determine whether it is public or private just by validating its signature. A GET at `https://api.securelay.tld/keys/<key>` returns information about the `<key>` in JSON format. If the provided key is private, it's public key is also returned.
+Note that given any key, it is trivial to determine whether it is public or private just by validating its signature. A GET at `https://securelay.tld/keys/<key>` returns information about the `<key>` in JSON format. If the provided key is private, it's public key is also returned.
 
 Public paths are prefixed with `/public` and private paths with `/private` mainly for the sake of readability of user code.
 
@@ -98,12 +102,12 @@ To mitigate abuse, the API might impose the following restrictions.
 - Secure p2p tunneling (using the [streams/piping feature](#features) @ `/pipe/` paths).
 - Hosting a rate-limited public webhook-server behind NAT (see [example](#api)).
 
-# Model Implementations
+# Model implementations
 See repositories starting with `api-` in the [securelay](https://github.com/securelay) GitHub organization.
-These implementations are not necessarily complete. [This](https://github.com/securelay/api-serverless-redis-vercel) serverless implementation is the most actively maintained.
+These implementations are not necessarily complete. [This](https://github.com/securelay/api-serverless-redis-vercel) serverless implementation is the most actively maintained. See [this](https://formonit.github.io) project for an example use case of Securelay as backend.
 
 # Future directions
-- Accept `?verify=<email>` query parameter when requesting the key-pair at `https://api.securelay.tld/keys`. This prompts Securelay to send an ephemeral nonce to the provided email. On presenting this nonce on a subsequent key-pair request with the query `?email=<email>&nonce=<nonce>&salt=<custom>` generates the desired key-pair. The `<random>` used to create the private key in this key-pair is : `hash(<email>+<custom>)`. So, basically it deterministically maps a *verified* email and a user-chosen salt to a private key. Even if the user loses his private key, he can easily retrieve it by verifying his email.
+- Accept `?verify=<email>` query parameter when requesting the key-pair at `https://securelay.tld/keys`. This prompts Securelay to send an ephemeral nonce to the provided email. On presenting this nonce on a subsequent key-pair request with the query `?email=<email>&nonce=<nonce>&salt=<custom>` generates the desired key-pair. The `<random>` used to create the private key in this key-pair is : `hash(<email>+<custom>)`. So, basically it deterministically maps a *verified* email and a user-chosen salt to a private key. Even if the user loses his private key, he can easily retrieve it by verifying his email.
 
 - Accept `Content-Type: multipart/form-data`.
 
@@ -134,31 +138,41 @@ curl https://securelay.vercel.app/keys/3zTryeMxkq
 Returns: `{"type":"private","public":"w_1uSAakuZ"}`
 
 ### Many to One Relay
-POST at public path:
+**POST at public path**:
 ```bash
 curl -d 'data=This+is+data1' https://securelay.vercel.app/public/w_1uSAakuZ;
 curl -d 'data=This+is+data2' https://securelay.vercel.app/public/w_1uSAakuZ;
 ```
-Returns: `{"message":"Done","error":"Ok","statusCode":200}`
+Returns:
+> `{"message":"Done","error":"Ok","statusCode":200,"webhook":false}`
 
-GET at private path:
+Note:
+
+The `webhook` value in the response is a Boolean stating whether the posted data was transferred via a webhook. If false, posted data remains available for GET at private path.
+
+**GET at private path**:
 ```bash
 curl https://securelay.vercel.app/private/3zTryeMxkq
 ```
-Returns: `[{"data":"This is data1"},{"data":"This is data2"}]`
+Returns:
+> `[{"id":"AYqNL","time":1736920876170,"data":{"data":"This is data1"}},{"id":"7q_n3","time":1736920880457,"data":{"data":"This is data2"}}]`
+
+Note:
+
+The response is a JSON array. Each element is a JSON containing an `id` to uniquely identify the message, `time` containing the Unix time the message was posted, and `data` containing the message.
 
 ### One to Many Relay
-POST at private path:
+**POST at private path**:
 ```bash
 curl -d 'msg=This+is+a+public+notice' https://securelay.vercel.app/private/3zTryeMxkq
 ```
 Returns: `{"message":"Done","error":"Ok","statusCode":200}`
 
-GET at public path:
+**GET at public path**:
 ```bash
 curl https://securelay.vercel.app/public/w_1uSAakuZ
 ```
-Returns: `{"msg":"This is a public notice"}`
+Returns: `{"id":"yW40d","time":1736921771281,"data":{"msg":"This is a public notice"}}`
 
 Refresh expiry with PATCH at private path:
 ```bash
@@ -180,23 +194,23 @@ curl https://securelay.vercel.app/private/3zTryeMxkq?stats
 Returns: `{"consume":{"count":2,"ttl":86395},"publish":{"ttl":0}}`
 
 ### One to One Relay
-POST at private path with some custom field:
+**POST at private path with some custom field**:
 ```bash
 curl -d 'msg=This+is+a+private+notice' https://securelay.vercel.app/private/3zTryeMxkq/field
 ```
 Returns: `{"message":"Done","error":"Ok","statusCode":200}`
 
-Check TTL (in seconds) of one-to-one data (value 0 would mean data has either been consumed or has expired):
+**Check TTL (in seconds) of one-to-one data** (value 0 would mean data has either been consumed or has expired):
 ```bash
 curl https://securelay.vercel.app/private/3zTryeMxkq/field
 ```
 Returns: `{"ttl":86397}`
 
-GET at public path with some custom field:
+**GET at public path with some custom field**:
 ```bash
 curl https://securelay.vercel.app/public/w_1uSAakuZ/field
 ```
-Returns: `{"msg":"This is a private notice"}`
+Returns: `{"id":"OL0UR","time":1736921895206,"data":{"msg":"This is a private notice"}}`
 
 ### Get endpoint's ID
 ```bash
@@ -219,13 +233,19 @@ curl https://securelay.vercel.app/private/3zTryeMxkq?hook=https%3A%2F%2Fppng.io%
 # Make a public POST
 curl -d 'data=This+is+data' https://securelay.vercel.app/public/w_1uSAakuZ
 ```
-Terminal A should output: `{"data":"This is data"}`
+Terminal A should output: `{"id":"lwjHI","time":1736921992377,"data":{"data":"This is data"}}`
 
 ### Custom redirects
 Applicable for all allowed POST requests. Example:
 ```bash
 curl -i -d 'data=This+is+data' 'https://securelay.vercel.app/public/w_1uSAakuZ?ok=https%3A%2F%2Fexample.com&err=https%3A%2F%2Fgithub.com%2F404.html'
 ```
+
+### Get OneSignal appId for the endpoint
+```bash
+curl https://securelay.vercel.app/id?app=formonit
+```
+Returns: `<ONESIGNAL_APP_ID>`.
 
 ### Streams/Piping
 Note: This feature is experimental and depends on the availability of 3rd party service(s).
