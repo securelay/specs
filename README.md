@@ -12,10 +12,16 @@ Securelay works in the following ways:
 1. [Aggregator](## 'Public POST | Private GET') mode (**many-to-one**):
    Many can POST (or publish) to a public path for only one to GET (or subscribe) at a private path. POSTed data persist until next GET or expiry, whichever is earlier. This may be useful for aggregating HTML form data from one's users. Aggregated data is retrieved (GET) as a JSON array.
 2. [Key-Value Store](## 'Private POST | Public GET') mode (one-to-many and one-to-one):
-   - **one-to-many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. Expiry may be refreshed with a PATCH request at the private path, with no body. See the [Security](#security) section below for a significant usecase of this mode.
+   - **one-to-many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. Expiry may be refreshed with a PATCH request at the private path, with no body. See the [Security](#security) section below for a significant usecase of this mode. Also see **CDN and password-protection** below for more details.
    - **one-to-one:** If path is suffixed with a user-given unique id `<uid>`. POSTed data persists until next GET or expiry, whichever is earlier. That is to say, when one POSTs to `https://securelay.tld/<private_path>/<uid>`, there can be only one GET consumer at `https://securelay.tld/<public_path>/<uid>`, after which any more GET at that path would result in a 404 error. This is useful for sending a separate response to each POSTer.
 
 **Metadata**: Securelay adds metadata to the posted data. Metadata consists of a unique id (`id`), (Unix) timestamp of when the data was posted (`time`).
+
+**CDN and password-protection**: The one-to-many key-value store mode described above operates in two ways:
+
+1. CDN: Data posted at a private path that is truly meant to be public is served over a [CDN](https://developer.mozilla.org/en-US/docs/Glossary/CDN) download-link. Due to cache-refresh time of CDN, any changes in the data (update/deletion) should take some time to reflect in the download link. In this mode, any GET at the publc path simply redirects to the CDN link. Data served over CDN persists longer, say for a month.
+
+2. Password: Data posted at a private path may be protected with a password, simply by using a query string `?password=<secret>`. This data can be retrieved only with a GET at the public path, provided the same query string (i.e. password) is used during download. This type of data is ephemeral (e.g. 1-day retention). However, every download might automatically extend the expiry by 1 more day to retain oft requested data.
 
 **Webhooks:** Private GET requests can optionally send a webhook URL using [query parameter `hook`](## '`?hook=<percent-encoded-URL>`'). The webhook URL is cached by the Securelay server for a preset [TTL](## 'Time To Live'). Subsequent public POSTs will be delivered (POST) to the cached webhook. The webhook URL will be [decached](## 'deleted from cache') if:
 1. Attempted delivery to the webhook during a public POST fails.
@@ -166,51 +172,80 @@ The response is a JSON array. Each element is a JSON containing an `id` to uniqu
 ```bash
 curl -d 'msg=This+is+a+public+notice' https://securelay.vercel.app/private/3zTryeMxkq
 ```
+Returns: `{"message":"Done","error":"Ok","statusCode":200, "cdn":"https://cdn.jsdelivr.net/gh/securelay/jsonbin@main/alz2h/w_1uSAakuZ.json"}`
+
+However, providing a password bypasses CDN:
+```bash
+curl -d 'msg=This+is+a+secret+notice' https://securelay.vercel.app/private/3zTryeMxkq?password=secret
+```
 Returns: `{"message":"Done","error":"Ok","statusCode":200}`
 
 **GET at public path**:
 ```bash
 curl https://securelay.vercel.app/public/w_1uSAakuZ
 ```
-Returns: `{"id":"yW40d","time":1736921771281,"data":{"msg":"This is a public notice"}}`
+Redirects ([301](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/301)) to the CDN link: https://cdn.jsdelivr.net/gh/securelay/jsonbin@main/alz2h/w_1uSAakuZ.json.
+
+However, providing a password as:
+```bash
+curl https://securelay.vercel.app/public/w_1uSAakuZ?password=secret
+```
+Returns: `{"id":"yW40d","time":1736921771281,"data":{"msg":"This is a secret notice"}}`
 
 Refresh expiry with PATCH at private path:
 ```bash
 curl -X PATCH https://securelay.vercel.app/private/3zTryeMxkq
 ```
-Returns: `{"message":"Done","error":"Ok","statusCode":200}` even if there is no data!
+Returns: `{"message":"Done","error":"Ok","statusCode":200, "cdn":"https://cdn.jsdelivr.net/gh/securelay/jsonbin@main/alz2h/w_1uSAakuZ.json"}` even if there is no data!
 
-DELETE at private path:
+To refresh password protected data simply add the query `?password` (no need to pass the actual value of the password as the private key takes care of the authentication):
+```bash
+curl -X PATCH https://securelay.vercel.app/private/3zTryeMxkq?password
+```
+Returns: `{"message":"Done","error":"Ok","statusCode":200}`
+
+Note: Retrieving password protected data autorefreshes it.
+
+DELETE at private path (unpublishes from CDN):
 ```bash
 curl -X DELETE https://securelay.vercel.app/private/3zTryeMxkq
 ```
 Returns: [`204 No Content`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/204)
+
+To delete the password protected data simply add the query `?password`.
 
 ### Stats
 GET at private path with query string `?stats` gives number of public POSTs waiting to be retrieved (consumed), which have not expired yet. It also gives the remaining TTL (in seconds) for those data as well as the data last published with POST at the private path. TTL value of 0 would mean data has either been consumed or has expired.
 ```bash
 curl https://securelay.vercel.app/private/3zTryeMxkq?stats
 ```
-Returns: `{"consume":{"count":2,"ttl":86395},"publish":{"ttl":0}}`
+Returns: `{"count":2,"ttl":86395}`
 
 ### One to One Relay
-**POST at private path with some custom field**:
+**POST at private path with some custom field (any random string)**:
 ```bash
-curl -d 'msg=This+is+a+private+notice' https://securelay.vercel.app/private/3zTryeMxkq/field
+curl -d 'msg=This+is+a+private+notice' https://securelay.vercel.app/private/3zTryeMxkq/anyRandString
+
+curl -d 'msg=This+is+another+private+notice' https://securelay.vercel.app/private/3zTryeMxkq/anotherRandString
 ```
 Returns: `{"message":"Done","error":"Ok","statusCode":200}`
 
 **Check TTL (in seconds) of one-to-one data** (value 0 would mean data has either been consumed or has expired):
 ```bash
-curl https://securelay.vercel.app/private/3zTryeMxkq/field
+curl https://securelay.vercel.app/private/3zTryeMxkq/anyRandString
 ```
 Returns: `{"ttl":86397}`
 
 **GET at public path with some custom field**:
 ```bash
-curl https://securelay.vercel.app/public/w_1uSAakuZ/field
+curl https://securelay.vercel.app/public/w_1uSAakuZ/anyRandString
 ```
 Returns: `{"id":"OL0UR","time":1736921895206,"data":{"msg":"This is a private notice"}}`
+
+```bash
+curl https://securelay.vercel.app/public/w_1uSAakuZ/anotherRandString
+```
+Returns: `{"id":"aChYU","time":1736921895208,"data":{"msg":"This is another private notice"}}`
 
 ### Get endpoint's ID
 ```bash
