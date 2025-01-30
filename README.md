@@ -83,13 +83,13 @@ To mitigate abuse, the API might impose the following restrictions.
 
 - Accepts POSTs only if they have `Content-Length` less than a size-limit (`default`: 10 kiB). This may not apply for POST/PUT at path `/pipe/...`.
 
-- Retains POSTed data until (retrieved or) expiry (`default TTL`: 24 hrs).
+- Retains POSTed data until (retrieved or) expiry (`default` TTL: 24 hrs. For CDN: 30 days).
 
 - Rate-limits requests. After a certain number of 429 responses 403 bans may be imposed. [404s may also be rate limited](https://github.com/fastify/fastify-rate-limit?tab=readme-ov-file#preventing-guessing-of-urls-through-404s).
 
 - Blocks offending IPs.
 
-- Redirect URLs for `/pipe/` requests are valid for a certain TTL (`default:` 60 seconds).
+- Redirect URLs for `/pipe/` requests are valid for a certain TTL (`default`: 60 seconds).
 
 - For any given key and method (`GET` | `POST` | `PUT`), requests at `/pipe/<key>` can generate a certain maximum number (`default`: 5) of unique redirect URLs.
 
@@ -113,11 +113,7 @@ See repositories starting with `api-` in the [securelay](https://github.com/secu
 These implementations are not necessarily complete. [This](https://github.com/securelay/api-serverless-redis-vercel) serverless implementation is the most actively maintained. See [this](https://formonit.github.io) project for an example use case of Securelay as backend.
 
 # Future directions
-- Accept `?verify=<email>` query parameter when requesting the key-pair at `https://securelay.tld/keys`. This prompts Securelay to send an ephemeral nonce to the provided email. On presenting this nonce on a subsequent key-pair request with the query `?email=<email>&nonce=<nonce>&salt=<custom>` generates the desired key-pair. The `<random>` used to create the private key in this key-pair is : `hash(<email>+<custom>)`. So, basically it deterministically maps a *verified* email and a user-chosen salt to a private key. Even if the user loses his private key, he can easily retrieve it by verifying his email.
-
-- Accept `Content-Type: multipart/form-data`.
-
-- Enable push notifications to subscribing private key owners. *n* times a day the subscribers may be fed the same information that is available with `?stats` query during GET at the private path.
+- Support email-TOTP based authorization. The URL-encoded email-id along with `?auth=<token>` query string or `Authorization: <token>` header may serve as private key. Any given email must generate one and only one public key.
 
 - Support configuring the max number of concurrent streams. This may be done using a query parameter (`?max`) at the private path.
 
