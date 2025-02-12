@@ -57,19 +57,34 @@ A GET to `https://securelay.tld/keys` returns a new private-public key-pair as J
 
 `public_key` gives the public path as `/public/<public_key>`.
 
-A key, private or public, is generated as `sign(<random> + <type>) + <random>`. `<type>` denotes the type of the key, i.e. 'private' or 'public' and `+` denotes concatenation. `<random>` denotes a random string (discussed below). Note: `<random>` is a substring of the key.
+<strong>A key, private or public, is generated as</strong> 
+```
+<typeCode> + sign(<random> + <type>) + <random>
+```
+where
 
-The `sign(arg)` function is implemented as `substring(hmac(arg, <secret>))` where `<secret>` is some random string known only to the Securelay server. For the sake of [futureproofing](#features), `<secret>` may be related to the database used. Secret, therefore, may be chosen as some hash of the database credentials.
+   - `<type>` denotes the type of the key, i.e. 'private' or 'public'.
 
-`<random>`, in case of private key, is `substring(hash(<UUID>))` where `<UUID>` is a [version 4 UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)).
+   - `<typeCode>` is a 6-bit (Base64-url) digit coding for a type. The map is: 
+```
+{'A': 'private', 'B': 'public'}
+```
 
-`<random>`, in case of public key, is `substring(hash(<random of private_key>))`.
+   - `+` denotes concatenation.
 
-SHA256 or MD5 may be used for both `hash` and `hmac` above.
+   - `<random>` denotes a random string (discussed below).
 
-Substrings are used above only to keep the key length short.
+   - `sign(arg)` function is implemented as `substring(hmac(arg, <secret>))` where `<secret>` is some random string known only to the Securelay server. For the sake of [futureproofing](#features), `<secret>` may be related to the database used. Secret, therefore, may be chosen as some hash of the database credentials.
 
-Note that given any key, it is trivial to determine whether it is public or private just by validating its signature. A GET at `https://securelay.tld/keys/<key>` returns information about the `<key>` in JSON format. If the provided key is private, it's public key is also returned.
+`<random>`, in case of private key, is sampled randomly.
+
+`<random>`, in case of public key, is derived from that of the private key as `substring(hash(<random of private_key>))`.
+
+MD5 is used for both `hash` and `hmac` above.
+
+Substrings are used above to keep the key length short.
+
+So, given any key, it is trivial to determine its type from its first letter. Also, checking its validity simply requires verifying its signature. A GET at `https://securelay.tld/keys/<key>` returns information about the `<key>` in JSON format, including any other key that may be derived from it.
 
 Public paths are prefixed with `/public` and private paths with `/private` mainly for the sake of readability of user code.
 
@@ -126,24 +141,24 @@ The following documents the API by using `curl` and the original Securelay serve
 ```bash
 curl https://securelay.vercel.app/keys
 ```
-Returns: `{"private":"3zTryeMxkq","public":"w_1uSAakuZ"}`
+Returns: `{"private":"A3zTryeMxkq","public":"Bw_1uSAakuZ"}`
 
 ### Check key type
 ```bash
-curl https://securelay.vercel.app/keys/w_1uSAakuZ
+curl https://securelay.vercel.app/keys/Bw_1uSAakuZ
 ```
-Returns: `{"type":"public"}`
+Returns: `{"type":"public","public":"Bw_1uSAakuZ"}`
 
 ```bash
-curl https://securelay.vercel.app/keys/3zTryeMxkq
+curl https://securelay.vercel.app/keys/A3zTryeMxkq
 ```
-Returns: `{"type":"private","public":"w_1uSAakuZ"}`
+Returns: `{"type":"private","public":"Bw_1uSAakuZ"}`
 
 ### Many to One Relay
 **POST at public path**:
 ```bash
-curl -d 'data=This+is+data1' https://securelay.vercel.app/public/w_1uSAakuZ;
-curl -d 'data=This+is+data2' https://securelay.vercel.app/public/w_1uSAakuZ;
+curl -d 'data=This+is+data1' https://securelay.vercel.app/public/Bw_1uSAakuZ;
+curl -d 'data=This+is+data2' https://securelay.vercel.app/public/Bw_1uSAakuZ;
 ```
 Returns:
 > `{"message":"Done","error":"Ok","statusCode":200,"webhook":false}`
@@ -154,7 +169,7 @@ The `webhook` value in the response is a Boolean stating whether the posted data
 
 **GET at private path**:
 ```bash
-curl https://securelay.vercel.app/private/3zTryeMxkq
+curl https://securelay.vercel.app/private/A3zTryeMxkq
 ```
 Returns:
 > `[{"id":"AYqNL","time":1736920876,"data":{"data":"This is data1"}},{"id":"7q_n3","time":1736920880,"data":{"data":"This is data2"}}]`
@@ -166,37 +181,37 @@ The response is a JSON array. Each element is a JSON containing an `id` to uniqu
 ### One to Many Relay
 **POST at private path**:
 ```bash
-curl -d 'msg=This+is+a+public+notice' https://securelay.vercel.app/private/3zTryeMxkq
+curl -d 'msg=This+is+a+public+notice' https://securelay.vercel.app/private/A3zTryeMxkq
 ```
-Returns: `{"message":"Done","error":"Ok","statusCode":200, "cdn":"https://cdn.jsdelivr.net/gh/securelay/jsonbin@main/alz2h/w_1uSAakuZ.json"}`
+Returns: `{"message":"Done","error":"Ok","statusCode":200, "cdn":"https://cdn.jsdelivr.net/gh/securelay/jsonbin@main/alz2h/Bw_1uSAakuZ.json"}`
 
 However, providing a password bypasses CDN:
 ```bash
-curl -d 'msg=This+is+a+secret+notice' https://securelay.vercel.app/private/3zTryeMxkq?password=secret
+curl -d 'msg=This+is+a+secret+notice' https://securelay.vercel.app/private/A3zTryeMxkq?password=secret
 ```
 Returns: `{"message":"Done","error":"Ok","statusCode":200}`
 
 **GET at public path**:
 ```bash
-curl https://securelay.vercel.app/public/w_1uSAakuZ
+curl https://securelay.vercel.app/public/Bw_1uSAakuZ
 ```
-Redirects ([301](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/301)) to the CDN link: https://cdn.jsdelivr.net/gh/securelay/jsonbin@main/alz2h/w_1uSAakuZ.json.
+Redirects ([301](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/301)) to the CDN link: https://cdn.jsdelivr.net/gh/securelay/jsonbin@main/alz2h/Bw_1uSAakuZ.json.
 
 However, providing a password as:
 ```bash
-curl https://securelay.vercel.app/public/w_1uSAakuZ?password=secret
+curl https://securelay.vercel.app/public/Bw_1uSAakuZ?password=secret
 ```
 Returns: `{"id":"yW40d","time":1736921771,"data":{"msg":"This is a secret notice"}}`
 
 Refresh expiry with PATCH at private path:
 ```bash
-curl -X PATCH https://securelay.vercel.app/private/3zTryeMxkq
+curl -X PATCH https://securelay.vercel.app/private/A3zTryeMxkq
 ```
-Returns: `{"message":"Done","error":"Ok","statusCode":200, "cdn":"https://cdn.jsdelivr.net/gh/securelay/jsonbin@main/alz2h/w_1uSAakuZ.json"}` even if there is no data!
+Returns: `{"message":"Done","error":"Ok","statusCode":200, "cdn":"https://cdn.jsdelivr.net/gh/securelay/jsonbin@main/alz2h/Bw_1uSAakuZ.json"}` even if there is no data!
 
 To refresh password protected data simply add the query `?password` (no need to pass the actual value of the password as the private key takes care of the authentication):
 ```bash
-curl -X PATCH https://securelay.vercel.app/private/3zTryeMxkq?password
+curl -X PATCH https://securelay.vercel.app/private/A3zTryeMxkq?password
 ```
 Returns: `{"message":"Done","error":"Ok","statusCode":200}`
 
@@ -204,7 +219,7 @@ Note: Retrieving password protected data autorefreshes it.
 
 DELETE at private path (unpublishes from CDN):
 ```bash
-curl -X DELETE https://securelay.vercel.app/private/3zTryeMxkq
+curl -X DELETE https://securelay.vercel.app/private/A3zTryeMxkq
 ```
 Returns: [`204 No Content`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/204)
 
@@ -213,33 +228,33 @@ To delete the password protected data simply add the query `?password`.
 ### Stats
 GET at private path with query string `?stats` gives number of public POSTs waiting to be retrieved (consumed), which have not expired yet. It also gives the remaining TTL (in seconds) for those data as well as the data last published with POST at the private path. TTL value of 0 would mean data has either been consumed or has expired.
 ```bash
-curl https://securelay.vercel.app/private/3zTryeMxkq?stats
+curl https://securelay.vercel.app/private/A3zTryeMxkq?stats
 ```
 Returns: `{"count":2,"ttl":86395}`
 
 ### One to One Relay
 **POST at private path with some custom field (any random string)**:
 ```bash
-curl -d 'msg=This+is+a+private+notice' https://securelay.vercel.app/private/3zTryeMxkq/anyRandString
+curl -d 'msg=This+is+a+private+notice' https://securelay.vercel.app/private/A3zTryeMxkq/anyRandString
 
-curl -d 'msg=This+is+another+private+notice' https://securelay.vercel.app/private/3zTryeMxkq/anotherRandString
+curl -d 'msg=This+is+another+private+notice' https://securelay.vercel.app/private/A3zTryeMxkq/anotherRandString
 ```
 Returns: `{"message":"Done","error":"Ok","statusCode":200}`
 
 **Check TTL (in seconds) of one-to-one data** (value 0 would mean data has either been consumed or has expired):
 ```bash
-curl https://securelay.vercel.app/private/3zTryeMxkq/anyRandString
+curl https://securelay.vercel.app/private/A3zTryeMxkq/anyRandString
 ```
 Returns: `{"ttl":86397}`
 
 **GET at public path with some custom field**:
 ```bash
-curl https://securelay.vercel.app/public/w_1uSAakuZ/anyRandString
+curl https://securelay.vercel.app/public/Bw_1uSAakuZ/anyRandString
 ```
 Returns: `{"id":"OL0UR","time":1736921895,"data":{"msg":"This is a private notice"}}`
 
 ```bash
-curl https://securelay.vercel.app/public/w_1uSAakuZ/anotherRandString
+curl https://securelay.vercel.app/public/Bw_1uSAakuZ/anotherRandString
 ```
 Returns: `{"id":"aChYU","time":1736921895,"data":{"msg":"This is another private notice"}}`
 
@@ -252,24 +267,24 @@ Returns: `alz2h`
 ### Webhooks
 Open two terminals: A and B.
 
-A. At terminal A, set up a webhook with URL https://ppng.io/3zTryeMxkq as follows:
+A. At terminal A, set up a webhook with URL https://ppng.io/A3zTryeMxkq as follows:
 ```bash
-while curl -f https://ppng.io/3zTryeMxkq; do :; done
+while curl -f https://ppng.io/A3zTryeMxkq; do :; done
 ```
 B. At terminal B:
 ```bash
 # Let Securelay know about your webhook URL
-curl https://securelay.vercel.app/private/3zTryeMxkq?hook=https%3A%2F%2Fppng.io%2F3zTryeMxkq
+curl https://securelay.vercel.app/private/A3zTryeMxkq?hook=https%3A%2F%2Fppng.io%2FA3zTryeMxkq
 
 # Make a public POST
-curl -d 'data=This+is+data' https://securelay.vercel.app/public/w_1uSAakuZ
+curl -d 'data=This+is+data' https://securelay.vercel.app/public/Bw_1uSAakuZ
 ```
 Terminal A should output: `{"id":"lwjHI","time":1736921992,"data":{"data":"This is data"}}`
 
 ### Custom redirects
 Applicable for all allowed POST requests. Example:
 ```bash
-curl -i -d 'data=This+is+data' 'https://securelay.vercel.app/public/w_1uSAakuZ?ok=https%3A%2F%2Fexample.com&err=https%3A%2F%2Fgithub.com%2F404.html'
+curl -i -d 'data=This+is+data' 'https://securelay.vercel.app/public/Bw_1uSAakuZ?ok=https%3A%2F%2Fexample.com&err=https%3A%2F%2Fgithub.com%2F404.html'
 ```
 
 ### Get OneSignal appId for the endpoint
@@ -281,15 +296,15 @@ Returns: `<ONESIGNAL_APP_ID>`.
 ### Streams/Piping
 Note: This feature is experimental and depends on the availability of 3rd party service(s).
 
-Open two terminals A and B. In terminal A, POST (or PUT) to public path `/pipe/w_1uSAakuZ`, while at terminal B GET from private path `/pipe/3zTryeMxkq`. POSTed data is transferred as stream (i.e. piped) without being stored in the server.
+Open two terminals A and B. In terminal A, POST (or PUT) to public path `/pipe/Bw_1uSAakuZ`, while at terminal B GET from private path `/pipe/A3zTryeMxkq`. POSTed data is transferred as stream (i.e. piped) without being stored in the server.
 
 Terminal A:
 ```bash
-curl -L -i -d 'data=hello+world' https://securelay.vercel.app/pipe/w_1uSAakuZ
+curl -L -i -d 'data=hello+world' https://securelay.vercel.app/pipe/Bw_1uSAakuZ
 ```
 Terminal B:
 ```bash
-curl -L -i https://securelay.vercel.app/pipe/3zTryeMxkq
+curl -L -i https://securelay.vercel.app/pipe/A3zTryeMxkq
 ```
 
 Note: `-L` option is used above to allow `curl` to follow the redirects.
@@ -298,6 +313,6 @@ Similarly for POST/PUT at private path and GET at public.
 
 One can, for example, run a webhook server, even behind NAT, as:
 ```bash
-while true; do timeout 60 curl -L https://securelay.vercel.app/pipe/3zTryeMxkq; echo; done
+while true; do timeout 60 curl -L https://securelay.vercel.app/pipe/A3zTryeMxkq; echo; done
 ```
-with its public endpoint URL being the corresponding public path: `https://securelay.vercel.app/pipe/w_1uSAakuZ`.
+with its public endpoint URL being the corresponding public path: `https://securelay.vercel.app/pipe/Bw_1uSAakuZ`.
