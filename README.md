@@ -15,7 +15,7 @@ Securelay works in the following ways:
    - **one-to-many**: Only one can POST (or pub) to a private path for many to GET (or sub) at a public path. POSTed data persists till expiry. Expiry may be refreshed with a PATCH request at the private path, with no body. See the [Security](#security) section below for a significant usecase of this mode. Also see **CDN and password-protection** below for more details.
    - **one-to-one:** If path is suffixed with a user-given unique id `<uid>`. POSTed data persists until next GET or expiry, whichever is earlier. That is to say, when one POSTs to `https://securelay.tld/<private_path>/<uid>`, there can be only one GET consumer at `https://securelay.tld/<public_path>/<uid>`, after which any more GET at that path would result in a 404 error. This is useful for sending a separate response to each POSTer.
 
-**Metadata**: Securelay adds metadata to the posted data. Metadata consists of a unique id (`id`), Unix-time (in seconds) of when the data was posted (`time`).
+**Metadata**: Securelay adds metadata to POSTed data. Metadata mandatorily includes a unique id (`id`) and Unix-time (in seconds) of when the data was posted (`time`). It may also include `geolocation` and `ip` of the POST request.
 
 **CDN and password-protection**: The one-to-many key-value store mode described above operates in two ways:
 
