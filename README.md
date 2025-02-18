@@ -39,7 +39,7 @@ Public POSTs respond with whether a webhook was used or not as `webhook: <boolea
 
 **Streams or Piping**: POST or PUT at public (private) paths are piped to GET at corresponding private (public) path provided the paths are prefixed with `/pipe/`. Data here is streamed live from the sender to the receiver and not stored, even ephemerally. Essentially, the Securelay server redirects ([`307`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/307)) to a http-relay service such as [piping-server](https://github.com/nwtgck/piping-server) or [httprelay.io](https://httprelay.io/), with a unique path. The redirect URLs are valid for a preset TTL of, say, 60 seconds. A receiver (sender) waits for the corresponding sender (receiver) to connect, if not already found. The waiting period should not exceed the abovementioned TTL of the redirect URLs. Currently, the implementations, if any, depend on the availability of such 3rd party http-relays for this feature to work. If the 3rd party http-relay allows for it, there may not be any limit on the size of the piped data.
 
-**Web-push notifications for registered apps**: A developer using Securelay as backend may register her app (`<app>`)  at https://github.com/securelay/apps. Upon receiving any POST at the public path *with query string `?app=<app>`* , Securelay sends a web-push using [OneSignal](https://onesignal.com) and the registered settings. To target the user, Securelay uses the public key as [OneSignal external_id](https://documentation.onesignal.com/docs/users#external-id). The frontend can simply use the [OneSignal SDK](https://documentation.onesignal.com/docs/web-sdk-reference) to register the user for the web-push. It, however, needs a OneSignal `appId` to  initiate the SDK. This is available from Securelay with a GET at url: `/id?app=<app>`. For illustration, see the [Formonit](https://formonit.github.io) project that uses Securelay as backend.
+**Web-push notifications for registered apps**: A developer using Securelay as backend may register her app (`<app>`)  at https://github.com/securelay/apps. Upon receiving any POST at the public path *with query string `?app=<app>`* , Securelay sends a web-push using [OneSignal](https://onesignal.com) and the registered settings. To target the user, Securelay uses the public key as [OneSignal external_id](https://documentation.onesignal.com/docs/users#external-id). The frontend can simply use the [OneSignal SDK](https://documentation.onesignal.com/docs/web-sdk-reference) to register the user for the web-push. It, however, needs a OneSignal `appId` to  initiate the SDK. This is available from Securelay with a GET at path: `/properties`. For illustration, see the [Formonit](https://formonit.github.io) project that uses Securelay as backend.
 
 # Security
 Security is brought about by the use of dual paths, one private and the other public, for posting (POST) and retrieving (GET) data. Public path is derivable from private path but not the other way round. Compare this with other http-relay services like [piping-server](https://github.com/nwtgck/piping-server), [http-relay](https://httprelay.io) or [pipeto.me](https://pipeto.me) which use the same path for both GET and POST.
@@ -89,7 +89,7 @@ So, given any key, it is trivial to determine its type from its first letter. Al
 Public paths are prefixed with `/public` and private paths with `/private` mainly for the sake of readability of user code.
 
 # Limits
-To mitigate abuse, the API might impose the following restrictions.
+To mitigate abuse, the API might impose the following restrictions. Endpoint-specific limits should be available as JSON at path: `/limits`.
 
 - Accepts and validates only these `Content-Type`s.
    - application/x-www-form-urlencoded
@@ -100,13 +100,15 @@ To mitigate abuse, the API might impose the following restrictions.
 
 - Retains POSTed data until (retrieved or) expiry (`default` TTL: 24 hrs. For CDN: 30 days).
 
+- Retains upto a certain number (`default`: 50) of Publicly POSTed messages. After reaching this limit, oldest messages are deleted, as necessary, in order to make space for the new ones.
+
+- Upto a certain number (`default`: 50) of one-to-one fields are allowed. Beyond this limit, private POSTs creating new fields are denied until an old field is retrieved (using public GET) to make space.
+
 - Rate-limits requests. After a certain number of 429 responses 403 bans may be imposed. [404s may also be rate limited](https://github.com/fastify/fastify-rate-limit?tab=readme-ov-file#preventing-guessing-of-urls-through-404s).
 
 - Blocks offending IPs.
 
 - Redirect URLs for `/pipe/` requests are valid for a certain TTL (`default`: 60 seconds).
-
-- For any given key and method (`GET` | `POST` | `PUT`), requests at `/pipe/<key>` can generate a certain maximum number (`default`: 5) of unique redirect URLs.
 
 # Use cases
 - Form backend (in [aggregator](#features) mode).
@@ -136,6 +138,15 @@ These implementations are not necessarily complete. [This](https://github.com/se
 The following documents the API by using `curl` and the original Securelay server: https://securelay.vercel.app as example. POSTs in the following examples have `Content-Type: application/x-www-form-urlencoded`.
 
 **Note:** [Here](https://securelay.github.io/api/script.js) is a **JavaScript module (SDK)** to access the API.
+
+### Static assets
+Each endpoint serves a few static assets as follows:
+- The endpoint ID: https://securelay.vercel.app/id
+- An about page: https://securelay.vercel.app/about
+- A contact page: https://securelay.vercel.app/contact
+- A JSON enlisting the properties or limits of the endpoint:
+   - https://securelay.vercel.app/properties
+   - https://securelay.vercel.app/limits
 
 ### Generate new key-pair
 ```bash
