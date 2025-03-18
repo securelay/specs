@@ -7,6 +7,10 @@ A secure and ephemeral http-relay for small data.
 
 # Features
 
+**RESTful Web API:** Need we say more?
+
+**SDK:** Atleast a JavaScript SDK. Here's [one](https://github.com/securelay/api) (in development).
+
 **Ephemeral:** POST(s) and GET(s) can be concurrent. If not, POSTed data persists for a preset maximum period of time, say 24 hrs. Hence, Securelay is *ephemeral*, if not storageless.
 
 **Duality:**
@@ -142,7 +146,7 @@ These implementations are not necessarily complete. [This](https://github.com/se
 # API
 The following documents the API by using `curl` and the original Securelay server: https://securelay.vercel.app as example. POSTs in the following examples have `Content-Type: application/x-www-form-urlencoded`.
 
-**Note:** [Here](https://securelay.github.io/api/script.js) is a **JavaScript module (SDK)** to access the API.
+**Note:** [Here](https://github.com/securelay/api) is a **JavaScript SDK** to access the API.
 
 ### Static assets
 Each endpoint serves a few static assets as follows:
